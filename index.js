@@ -177,12 +177,13 @@ bot.onText(/\/commands/, (msg) => {
 });
 
 // Start server
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
     console.log(`🚀 SHADOW MD Bot is running on port ${PORT}`);
     
-    // Set webhook
-    const webhookUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/webhook/${token}`;
+    // Set webhook - using your actual domain
+    const webhookUrl = `https://shadow-md-incredible-creativity.up.railway.app/webhook/${token}`;
     try {
         await bot.setWebHook(webhookUrl);
         console.log(`✅ Webhook set to: ${webhookUrl}`);
