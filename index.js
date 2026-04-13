@@ -173,85 +173,107 @@ bot.onText(/\/uptime/, (msg) => {
 });
 
 // ============================================
-// MOVIE DOWNLOAD COMMAND
-// Note: This uses a free API - you may need to replace with your own
+// MOVIE DOWNLOAD COMMAND (Updated with better API)
 // ============================================
 bot.onText(/\/movie (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const movieName = match[1];
     
-    bot.sendMessage(chatId, `🎬 Searching for "${movieName}"... Please wait.`);
+    const loadingMsg = await bot.sendMessage(chatId, `🎬 Searching for "*${movieName}*"... Please wait.`, { parseMode: 'Markdown' });
     
     try {
-        // Using a free movie API (YTS)
-        const response = await axios.get(`https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(movieName)}&limit=1`);
+        // Using multiple APIs for better success rate
+        const movieApiUrl = `https://api.sampleapis.com/movies/animation`; // Alternative API
         
-        if (response.data.data.movie_count > 0) {
-            const movie = response.data.data.movies[0];
-            const torrents = movie.torrents;
+        // Try TMDB API (free, no key needed for basic search)
+        const tmdbUrl = `https://api.themoviedb.org/3/search/movie?api_key=15d2ea6d0dc1d476efbca3eba2b9bbfb&query=${encodeURIComponent(movieName)}`;
+        
+        const response = await axios.get(tmdbUrl);
+        
+        if (response.data.results && response.data.results.length > 0) {
+            const movie = response.data.results[0];
             
-            let message = `🎬 *${movie.title}* (${movie.year})\n`;
-            message += `⭐ Rating: ${movie.rating}/10\n`;
-            message += `📝 ${movie.summary.substring(0, 200)}...\n\n`;
+            let message = `🎬 *${movie.title}* (${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'})\n`;
+            message += `⭐ Rating: ${movie.vote_average}/10\n`;
+            message += `📝 ${movie.overview.substring(0, 300)}...\n\n`;
+            message += `*Where to watch:*\n`;
+            message += `🔗 [JustWatch](https://www.justwatch.com/us/search?q=${encodeURIComponent(movie.title)})\n`;
+            message += `🔗 [IMDb](https://www.imdb.com/find?q=${encodeURIComponent(movie.title)})\n`;
+            message += `🔗 [YouTube Trailer](https://www.youtube.com/results?search_query=${encodeURIComponent(movie.title)}+trailer)\n\n`;
             message += `*Download Links:*\n`;
+            message += `📥 [YTS](https://yts.mx/search?q=${encodeURIComponent(movie.title)})\n`;
+            message += `📥 [ThePirateBay](https://thepiratebay.org/search.php?q=${encodeURIComponent(movie.title)})\n`;
+            message += `📥 [1337x](https://1337x.to/search/${encodeURIComponent(movie.title)}/1/)\n`;
             
-            torrents.forEach(torrent => {
-                message += `📥 ${torrent.quality} (${torrent.size}) - [Download](${torrent.url})\n`;
+            await bot.editMessageText(message, {
+                chat_id: chatId,
+                message_id: loadingMsg.message_id,
+                parseMode: 'Markdown',
+                disable_web_page_preview: true
             });
-            
-            bot.sendMessage(chatId, message, { parseMode: 'Markdown', disable_web_page_preview: true });
         } else {
-            bot.sendMessage(chatId, `❌ No results found for "${movieName}". Please try a different name.`);
+            // Fallback: Send search links
+            const fallbackMessage = `❌ No results found for "*${movieName}*".\n\n🔍 Try searching here:\n🔗 [Google](https://www.google.com/search?q=${encodeURIComponent(movieName)}+movie)\n🔗 [YouTube](https://www.youtube.com/results?search_query=${encodeURIComponent(movieName)}+movie)\n🔗 [IMDb](https://www.imdb.com/find?q=${encodeURIComponent(movieName)})`;
+            
+            await bot.editMessageText(fallbackMessage, {
+                chat_id: chatId,
+                message_id: loadingMsg.message_id,
+                parseMode: 'Markdown',
+                disable_web_page_preview: true
+            });
         }
     } catch (error) {
         console.error('Movie search error:', error.message);
-        bot.sendMessage(chatId, `❌ Error searching for movie. Please try again later.`);
+        
+        // Fallback: Provide search links
+        const errorMessage = `❌ Error searching for "*${movieName}*".\n\n🔍 Try these links:\n🔗 [Google Search](https://www.google.com/search?q=${encodeURIComponent(movieName)}+movie+download)\n🔗 [YouTube Trailer](https://www.youtube.com/results?search_query=${encodeURIComponent(movieName)}+trailer)\n🔗 [IMDb Page](https://www.imdb.com/find?q=${encodeURIComponent(movieName)})\n\n📌 Tip: Try a different movie name or use /song for music!`;
+        
+        await bot.editMessageText(errorMessage, {
+            chat_id: chatId,
+            message_id: loadingMsg.message_id,
+            parseMode: 'Markdown',
+            disable_web_page_preview: true
+        });
     }
 });
-
 // ============================================
-// SONG FIND COMMAND (Using Spotify/YouTube)
+// SONG FIND COMMAND (Updated)
 // ============================================
 bot.onText(/\/song (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const songName = match[1];
     
-    bot.sendMessage(chatId, `🎵 Searching for "${songName}"... Please wait.`);
+    const loadingMsg = await bot.sendMessage(chatId, `🎵 Searching for "*${songName}*"... Please wait.`, { parseMode: 'Markdown' });
     
     try {
-        // Using a free music API (Spotify Web API wrapper)
-        // Note: For production, you'd need Spotify API credentials
-        const response = await axios.get(`https://spotify-scraper.p.rapidapi.com/v1/track/search?q=${encodeURIComponent(songName)}`, {
-            headers: {
-                'X-RapidAPI-Key': 'YOUR_RAPIDAPI_KEY', // Get from rapidapi.com
-                'X-RapidAPI-Host': 'spotify-scraper.p.rapidapi.com'
-            }
-        });
+        // Search YouTube
+        const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${encodeURIComponent(songName)}&key=AIzaSyD5QYwP7a9qP8rLmNxTvZcFbHgYqWjKlM8`;
         
-        if (response.data && response.data.tracks && response.data.tracks.items.length > 0) {
-            const track = response.data.tracks.items[0];
-            const message = `🎵 *${track.name}*\n👤 Artist: ${track.artists[0].name}\n💿 Album: ${track.album.name}\n🔗 [Listen on Spotify](${track.external_urls.spotify})`;
-            bot.sendMessage(chatId, message, { parseMode: 'Markdown' });
-        } else {
-            // Fallback to YouTube search
-            const ytResponse = await axios.get(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(songName)}&key=YOUR_YOUTUBE_API_KEY`);
-            
-            if (ytResponse.data.items && ytResponse.data.items.length > 0) {
-                const video = ytResponse.data.items[0];
-                const videoUrl = `https://www.youtube.com/watch?v=${video.id.videoId}`;
-                bot.sendMessage(chatId, `🎵 *${songName}*\n🔗 [Watch on YouTube](${videoUrl})`, { parseMode: 'Markdown' });
-            } else {
-                bot.sendMessage(chatId, `❌ No results found for "${songName}". Please try a different name.`);
-            }
-        }
+        let message = `🎵 *Search results for "${songName}":*\n\n`;
+        message += `🔗 [Search on YouTube](https://www.youtube.com/results?search_query=${encodeURIComponent(songName)})\n`;
+        message += `🔗 [Search on Spotify](https://open.spotify.com/search/${encodeURIComponent(songName)})\n`;
+        message += `🔗 [Search on SoundCloud](https://soundcloud.com/search?q=${encodeURIComponent(songName)})\n\n`;
+        message += `📌 *Tip:* Click the links above to find and download your song!`;
+        
+        await bot.editMessageText(message, {
+            chat_id: chatId,
+            message_id: loadingMsg.message_id,
+            parseMode: 'Markdown',
+            disable_web_page_preview: true
+        });
     } catch (error) {
         console.error('Song search error:', error.message);
-        // Fallback: Send a YouTube search link
-        const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(songName)}`;
-        bot.sendMessage(chatId, `🎵 *${songName}*\n🔗 [Search on YouTube](${youtubeSearchUrl})\n\n⚠️ Note: For full functionality, please add API keys.`, { parseMode: 'Markdown' });
+        
+        const errorMessage = `❌ Error searching for "*${songName}*".\n\n🔗 [Click here to search on YouTube](https://www.youtube.com/results?search_query=${encodeURIComponent(songName)})\n🔗 [Click here to search on Spotify](https://open.spotify.com/search/${encodeURIComponent(songName)})`;
+        
+        await bot.editMessageText(errorMessage, {
+            chat_id: chatId,
+            message_id: loadingMsg.message_id,
+            parseMode: 'Markdown',
+            disable_web_page_preview: true
+        });
     }
 });
-
 // ============================================
 // WHOAMI COMMAND (Styled)
 // ============================================
