@@ -1,0 +1,16 @@
+{
+  "name": "shadow-md",
+  "version": "1.0.0",
+  "description": "SHADOW MD - Multi-utility Telegram Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "node-telegram-bot-api": "^0.67.0"
+  },
+  "devDependencies": {
+    "pm2": "^6.0.14"
+  }
+}
