@@ -802,7 +802,7 @@ app.listen(PORT, async () => {
     console.log(`🚀 SHADOW MD Bot is running on port ${PORT}`);
     
     // Set webhook - update with your actual domain
-    const webhookUrl = `https://your-domain.up.railway.app/webhook/${token}`;
+    const webhookUrl = `https://shadow-md-incredible-creativity.up.railway.app/webhook/${token}`;
     try {
         await bot.setWebHook(webhookUrl);
         console.log(`✅ Webhook set to: ${webhookUrl}`);
