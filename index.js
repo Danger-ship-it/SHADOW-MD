@@ -33,7 +33,6 @@ app.get('/', (req, res) => {
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
 // Format uptime
 function getUptime() {
     const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
@@ -47,7 +46,6 @@ function getUptime() {
     if (minutes > 0) return `${minutes}m ${seconds}s`;
     return `${seconds}s`;
 }
-
 // Download music function
 async function downloadMusic(songName, chatId) {
     try {
@@ -672,62 +670,313 @@ bot.onText(/\/remind (\d+) (.+)/, (msg, match) => {
         bot.sendMessage(msg.chat.id, `🔔 *REMINDER*: ${reminderText}`, { parseMode: 'Markdown', ...options });
     }, seconds * 1000);
 });
-
 // ============================================
 // CALLBACK QUERY HANDLER (For button presses)
 // ============================================
-bot.on('callback_query', (callbackQuery) => {
+bot.on('callback_query', async (callbackQuery) => {
     const message = callbackQuery.message;
     const chatId = message.chat.id;
+    const messageId = message.message_id;
     const data = callbackQuery.data;
     
-    // Simulate command execution
+    // Answer the callback to remove loading state
+    await bot.answerCallbackQuery(callbackQuery.id);
+    
+    // Handle different button presses
     switch(data) {
         case 'start':
-            bot.emit('text', { chat: { id: chatId }, from: { first_name: 'User' }, text: '/start' });
-            break;
-        case 'help':
-            bot.emit('text', { chat: { id: chatId }, text: '/help' });
-            break;
-        case 'about':
-            bot.emit('text', { chat: { id: chatId }, text: '/about' });
-            break;
-        case 'report':
-            bot.emit('text', { chat: { id: chatId }, text: '/report' });
-            break;
-        case 'uptime':
-            bot.emit('text', { chat: { id: chatId }, text: '/uptime' });
-            break;
-        case 'whoami':
-            bot.emit('text', { chat: { id: chatId }, text: '/whoami' });
-            break;
-        case 'roll':
-            bot.emit('text', { chat: { id: chatId }, text: '/roll' });
-            break;
-        case 'flip':
-            bot.emit('text', { chat: { id: chatId }, text: '/flip' });
-            break;
-        case 'time':
-            bot.emit('text', { chat: { id: chatId }, text: '/time' });
-            break;
-        case 'quote':
-            bot.emit('text', { chat: { id: chatId }, text: '/quote' });
-            break;
-        case 'ping':
-            bot.emit('text', { chat: { id: chatId }, text: '/ping' });
-            break;
-        case 'movie_prompt':
-            bot.sendMessage(chatId, "🎬 *Send me a movie name:*\nExample: `/movie inception`", { parseMode: 'Markdown' });
-            break;
-        case 'song_prompt':
-            bot.sendMessage(chatId, "🎵 *Send me a song name:*\nExample: `/song shape of you`", { parseMode: 'Markdown' });
-            break;
-    }
-    
-    // Answer the callback to remove loading state
-    bot.answerCallbackQuery(callbackQuery.id);
-});
+            // Send new welcome message instead of editing
+            const name = callbackQuery.from.first_name;
+            const welcomeMessage = `╔══════════════════════════════╗
+║        🤖 SHADOW MD          ║
+║    YOUR ULTIMATE TELEGRAM BOT
+╠══════════════════════════════╣
+║  👋 WELCOME ${name.toUpperCase()}!
+║  TYPE /help TO GET STARTED
+╚══════════════════════════════╝`;
 
+            const options = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "📚 HELP", callback_data: "help" },
+                            { text: "ℹ️ ABOUT", callback_data: "about" }
+                        ],
+                        [
+                            { text: "🎬 MOVIE", callback_data: "movie" },
+                            { text: "🎵 SONG", callback_data: "song" }
+                        ],
+                        [
+                            { text: "⏱️ UPTIME", callback_data: "uptime" },
+                            { text: "👤 WHOAMI", callback_data: "whoami" }
+                        ],
+                        [
+                            { text: "🎲 ROLL", callback_data: "roll" },
+                            { text: "🪙 FLIP", callback_data: "flip" }
+                        ],
+                        [
+                            { text: "📅 TIME", callback_data: "time" },
+                            { text: "💭 QUOTE", callback_data: "quote" }
+                        ],
+                        [
+                            { text: "📝 REPORT", callback_data: "report" },
+                            { text: "🏓 PING", callback_data: "ping" }
+                        ]
+                    ]
+                }
+            };
+            
+            await bot.sendMessage(chatId, welcomeMessage, { parseMode: 'Markdown', ...options });
+            break;
+            
+        case 'help':
+            const helpMessage = `╔════════════════════════════════════════╗
+║         🤖 SHADOW MD COMMANDS          ║
+╠════════════════════════════════════════╣
+║  🎬 *MOVIE & MUSIC COMMANDS:*          ║
+║  /movie <name> - FIND MOVIE            ║
+║  /song <name> - DOWNLOAD SONG          ║
+║                                        ║
+║  🎮 *FUN & GAMES:*                     ║
+║  /roll - ROLL A DICE                   ║
+║  /flip - FLIP A COIN                   ║
+║  /random <min> <max> - RANDOM NUMBER   ║
+║  /quote - RANDOM QUOTE                 ║
+║  /hello - GET A GREETING               ║
+║                                        ║
+║  🔧 *UTILITY COMMANDS:*                ║
+║  /time - CURRENT DATE & TIME           ║
+║  /uptime - BOT UPTIME                  ║
+║  /echo <msg> - REPEAT MESSAGE          ║
+║  /calc <exp> - CALCULATE MATH          ║
+║  /remind <sec> <msg> - SET REMINDER    ║
+║                                        ║
+║  ℹ️ *INFO COMMANDS:*                   ║
+║  /about - ABOUT SHADOW MD              ║
+║  /whoami - YOUR USER INFO              ║
+║  /chatid - GET CHAT ID                 ║
+║  /ping - CHECK RESPONSE TIME           ║
+╚════════════════════════════════════════╝`;
+
+            const helpOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🏠 HOME", callback_data: "start" },
+                            { text: "ℹ️ ABOUT", callback_data: "about" }
+                        ]
+                    ]
+                }
+            };
+            
+            await bot.sendMessage(chatId, helpMessage, { parseMode: 'Markdown', ...helpOptions });
+            break;
+            
+        case 'about':
+            const aboutMessage = `╔══════════════════════════════╗
+║     🤖 ABOUT SHADOW MD       ║
+╠══════════════════════════════╣
+║  📌 NAME: SHADOW MD          ║
+║  📦 VERSION: 2.0 ★           ║
+║  👨‍💻 DEVELOPER: @shadowcodehmax ║
+║  🌐 STATUS: 🟢 ONLINE         ║
+║  🎯 PURPOSE: MULTI-UTILITY    ║
+║      TELEGRAM BOT            ║
+║  🛠️ FEATURES:                ║
+║   • MUSIC SEARCH             ║
+║   • MOVIE FINDER             ║
+║   • GAMES & UTILITIES        ║
+║   • REMINDERS & MORE         ║
+╚══════════════════════════════╝`;
+
+            const aboutOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🏠 HOME", callback_data: "start" },
+                            { text: "📚 HELP", callback_data: "help" }
+                        ]
+                    ]
+                }
+            };
+            
+            await bot.sendMessage(chatId, aboutMessage, { parseMode: 'Markdown', ...aboutOptions });
+            break;
+            
+        case 'movie':
+            await bot.sendMessage(chatId, "🎬 *Send me a movie name:*\nExample: `/movie inception`", { parseMode: 'Markdown' });
+            break;
+            
+        case 'song':
+            await bot.sendMessage(chatId, "🎵 *Send me a song name:*\nExample: `/song shape of you`", { parseMode: 'Markdown' });
+            break;
+            
+        case 'uptime':
+            const uptime = getUptime();
+            const uptimeOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🏠 HOME", callback_data: "start" },
+                            { text: "📚 HELP", callback_data: "help" }
+                        ]
+                    ]
+                }
+            };
+            await bot.sendMessage(chatId, `⏱️ *SHADOW MD Uptime:* \`${uptime}\``, { parseMode: 'Markdown', ...uptimeOptions });
+            break;
+            
+        case 'whoami':
+            const user = callbackQuery.from;
+            const info = `╔══════════════════════════════╗
+║       👤 USER INFORMATION     ║
+╠══════════════════════════════╣
+║  📛 NAME: ${user.first_name} ${user.last_name || ''}
+║  🔖 USERNAME: ${user.username ? '@' + user.username : 'Not set'}
+║  🆔 USER ID: \`${user.id}\`
+║  🌐 LANGUAGE: ${user.language_code || 'Unknown'}
+╚══════════════════════════════╝`;
+            
+            const whoamiOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🏠 HOME", callback_data: "start" },
+                            { text: "📚 HELP", callback_data: "help" }
+                        ]
+                    ]
+                }
+            };
+            
+            await bot.sendMessage(chatId, info, { parseMode: 'Markdown', ...whoamiOptions });
+            break;
+            
+        case 'roll':
+            const dice = getRandomInt(1, 6);
+            const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+            const rollOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🎲 ROLL AGAIN", callback_data: "roll" },
+                            { text: "🏠 HOME", callback_data: "start" }
+                        ]
+                    ]
+                }
+            };
+            await bot.sendMessage(chatId, `🎲 You rolled a ${dice} ${diceEmojis[dice-1]}`, { ...rollOptions });
+            break;
+            
+        case 'flip':
+            const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
+            const emoji = result === 'Heads' ? '👑' : '🪙';
+            const flipOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🪙 FLIP AGAIN", callback_data: "flip" },
+                            { text: "🏠 HOME", callback_data: "start" }
+                        ]
+                    ]
+                }
+            };
+            await bot.sendMessage(chatId, `${emoji} Coin flip: *${result}!*`, { parseMode: 'Markdown', ...flipOptions });
+            break;
+            
+        case 'time':
+            const now = new Date();
+            const timeOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🏠 HOME", callback_data: "start" },
+                            { text: "📚 HELP", callback_data: "help" }
+                        ]
+                    ]
+                }
+            };
+            await bot.sendMessage(chatId, `📅 ${now.toLocaleDateString()}\n🕐 ${now.toLocaleTimeString()}`, { ...timeOptions });
+            break;
+            
+        case 'quote':
+            const quotes = [
+                { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+                { text: "Stay hungry, stay foolish.", author: "Steve Jobs" },
+                { text: "Be the change you wish to see in the world.", author: "Mahatma Gandhi" }
+            ];
+            const quote = quotes[Math.floor(Math.random() * quotes.length)];
+            const quoteOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "💭 ANOTHER QUOTE", callback_data: "quote" },
+                            { text: "🏠 HOME", callback_data: "start" }
+                        ]
+                    ]
+                }
+            };
+            await bot.sendMessage(chatId, `💭 *"${quote.text}"*\n\n— ${quote.author}`, { parseMode: 'Markdown', ...quoteOptions });
+            break;
+            
+        case 'report':
+            const reportMessage = `╔══════════════════════════════╗
+║       📝 REPORT ISSUE        ║
+╠══════════════════════════════╣
+║  CONTACT DEVELOPER:         ║
+║  @shadowcodemax              ║
+║                             ║
+║  OR EMAIL:                  ║
+║  📧 shadowtech@gmail.com    ║
+╚══════════════════════════════╝`;
+            
+            const reportOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🏠 HOME", callback_data: "start" },
+                            { text: "📚 HELP", callback_data: "help" }
+                        ]
+                    ]
+                }
+            };
+            
+            await bot.sendMessage(chatId, reportMessage, { parseMode: 'Markdown', ...reportOptions });
+            break;
+            
+        case 'ping':
+            const start = Date.now();
+            const pingMsg = await bot.sendMessage(chatId, "Pong! 🏓");
+            const responseTime = Date.now() - start;
+            const pingOptions = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: "🏠 HOME", callback_data: "start" },
+                            { text: "📚 HELP", callback_data: "help" }
+                        ]
+                    ]
+                }
+            };
+            await bot.editMessageText(`🏓 Pong!\n⏱️ Response time: ${responseTime}ms`, {
+                chat_id: chatId,
+                message_id: pingMsg.message_id,
+                parseMode: 'Markdown',
+                ...pingOptions
+            });
+            break;
+            
+        case 'movie_prompt':
+            await bot.sendMessage(chatId, "🎬 *Send me a movie name:*\nExample: `/movie inception`", { parseMode: 'Markdown' });
+            break;
+            
+        case 'song_prompt':
+            await bot.sendMessage(chatId, "🎵 *Send me a song name:*\nExample: `/song shape of you`", { parseMode: 'Markdown' });
+            break;
+            
+        default:
+            await bot.sendMessage(chatId, "❌ Command not recognized. Use /help for available commands.");
+    }
+});
 // ============================================
 // START SERVER WITH WEBHOOK
 // ============================================
