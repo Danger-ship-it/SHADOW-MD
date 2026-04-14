@@ -130,10 +130,6 @@ bot.onText(/\/start/, (msg) => {
                     { text: "💭 QUOTE", callback_data: "quote" }
                 ],
                 [
-                    { text: "🔌 CONNECT", callback_data: "connect" },
-                    { text: "🗑️ DELPAIR", callback_data: "delpair" }
-                ],
-                [
                     { text: "📝 REPORT", callback_data: "report" },
                     { text: "🏓 PING", callback_data: "ping" }
                 ]
@@ -152,17 +148,13 @@ bot.onText(/\/help/, (msg) => {
     const helpMessage = `╔════════════════════════════════════════╗
 ║         🤖 SHADOW MD COMMANDS          ║
 ╠════════════════════════════════════════╣
-║  🔌 *CONNECTION COMMANDS:*             ║
-║  /connect - PAIR DEVICE                ║
-║  /delpair - REMOVE PAIR                ║
-║  /ping - CHECK SPEED                   ║
-║  /report - REPORT ISSUE                ║
-║                                        ║
 ║  🎬 *MOVIE & MUSIC COMMANDS:*          ║
+║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
 ║  /movie <name> - FIND MOVIE            ║
 ║  /song <name> - DOWNLOAD SONG          ║
 ║                                        ║
 ║  🎮 *FUN & GAMES:*                     ║
+║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
 ║  /roll - ROLL A DICE                   ║
 ║  /flip - FLIP A COIN                   ║
 ║  /random <min> <max> - RANDOM NUMBER   ║
@@ -170,6 +162,7 @@ bot.onText(/\/help/, (msg) => {
 ║  /hello - GET A GREETING               ║
 ║                                        ║
 ║  🔧 *UTILITY COMMANDS:*                ║
+║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
 ║  /time - CURRENT DATE & TIME           ║
 ║  /uptime - BOT UPTIME                  ║
 ║  /echo <msg> - REPEAT MESSAGE          ║
@@ -177,9 +170,11 @@ bot.onText(/\/help/, (msg) => {
 ║  /remind <sec> <msg> - SET REMINDER    ║
 ║                                        ║
 ║  ℹ️ *INFO COMMANDS:*                   ║
+║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
 ║  /about - ABOUT SHADOW MD              ║
 ║  /whoami - YOUR USER INFO              ║
 ║  /chatid - GET CHAT ID                 ║
+║  /ping - CHECK RESPONSE TIME           ║
 ╚════════════════════════════════════════╝`;
 
     const options = {
@@ -219,7 +214,6 @@ bot.onText(/\/about/, (msg) => {
 ║  🎯 PURPOSE: MULTI-UTILITY    ║
 ║      TELEGRAM BOT            ║
 ║  🛠️ FEATURES:                ║
-║   • DEVICE PAIRING           ║
 ║   • MUSIC DOWNLOAD           ║
 ║   • MOVIE FINDER             ║
 ║   • GAMES & UTILITIES        ║
@@ -238,71 +232,6 @@ bot.onText(/\/about/, (msg) => {
     };
     
     bot.sendMessage(chatId, aboutMessage, { parseMode: 'Markdown', ...options });
-});
-
-// ============================================
-// CONNECT COMMAND
-// ============================================
-bot.onText(/\/connect/, (msg) => {
-    const chatId = msg.chat.id;
-    const message = `╔══════════════════════════════╗
-║       🔌 CONNECT DEVICE      ║
-╠══════════════════════════════╣
-║  TO CONNECT YOUR DEVICE:    ║
-║  ━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
-║  1. CLICK THE LINK BELOW    ║
-║  2. SCAN THE QR CODE        ║
-║  3. WAIT FOR CONNECTION     ║
-║                             ║
-║  🔗 CONNECTION LINK:        ║
-║  [CLICK HERE TO CONNECT]    ║
-║                             ║
-║  ⚡ FAST & SECURE PAIRING    ║
-╚══════════════════════════════╝`;
-
-    const options = {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    { text: "🏠 HOME", callback_data: "start" },
-                    { text: "📚 HELP", callback_data: "help" }
-                ]
-            ]
-        }
-    };
-    
-    bot.sendMessage(chatId, message, { parseMode: 'Markdown', ...options });
-});
-
-// ============================================
-// DELPAIR COMMAND
-// ============================================
-bot.onText(/\/delpair/, (msg) => {
-    const chatId = msg.chat.id;
-    const message = `╔══════════════════════════════╗
-║       🗑️ REMOVE PAIR         ║
-╠══════════════════════════════╣
-║  YOUR DEVICE HAS BEEN       ║
-║  SUCCESSFULLY UNPAIRED      ║
-║                             ║
-║  ✅ PAIRING REMOVED          ║
-║  🔒 DEVICE DISCONNECTED      ║
-║                             ║
-║  USE /connect TO PAIR AGAIN ║
-╚══════════════════════════════╝`;
-
-    const options = {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    { text: "🔌 CONNECT", callback_data: "connect" },
-                    { text: "🏠 HOME", callback_data: "start" }
-                ]
-            ]
-        }
-    };
-    
-    bot.sendMessage(chatId, message, { parseMode: 'Markdown', ...options });
 });
 
 // ============================================
@@ -751,12 +680,6 @@ bot.on('callback_query', (callbackQuery) => {
             break;
         case 'about':
             bot.emit('text', { chat: { id: chatId }, text: '/about' });
-            break;
-        case 'connect':
-            bot.emit('text', { chat: { id: chatId }, text: '/connect' });
-            break;
-        case 'delpair':
-            bot.emit('text', { chat: { id: chatId }, text: '/delpair' });
             break;
         case 'report':
             bot.emit('text', { chat: { id: chatId }, text: '/report' });
