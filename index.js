@@ -387,33 +387,37 @@ bot.onText(/\/movie (.+)/, async (msg, match) => {
         });
     }
 });
-
 // ============================================
-// SONG COMMAND - DOWNLOADS AND SENDS AUDIO
+// SONG COMMAND - Provides YouTube links (RELIABLE)
 // ============================================
 bot.onText(/\/song (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const songName = match[1];
     
-    const loadingMsg = await bot.sendMessage(chatId, `🎵 Downloading "*${songName}*"... Please wait.`, { parseMode: 'Markdown' });
+    const loadingMsg = await bot.sendMessage(chatId, `🎵 Searching for "*${songName}*"... Please wait.`, { parseMode: 'Markdown' });
     
     try {
-        const audioFile = await downloadMusic(songName, chatId);
+        const ytSearch = require('yt-search');
+        const searchResults = await ytSearch(songName + " official audio song");
         
-        if (audioFile) {
-            // Send the audio file to the chat
-            await bot.sendAudio(chatId, audioFile.path, {
-                caption: `🎵 *${audioFile.title}*\n⏱️ Duration: ${audioFile.duration}\n🔗 [Watch on YouTube](${audioFile.url})`,
-                parseMode: 'Markdown'
+        if (searchResults && searchResults.videos && searchResults.videos.length > 0) {
+            const videos = searchResults.videos.slice(0, 5);
+            
+            let message = `🎵 *Search results for "${songName}":*\n\n`;
+            
+            videos.forEach((video, index) => {
+                const duration = video.duration.timestamp || 'N/A';
+                const views = video.views ? video.views.toLocaleString() : 'N/A';
+                message += `${index + 1}. *${video.title.substring(0, 60)}*\n`;
+                message += `   ⏱️ ${duration} | 👁️ ${views} views\n`;
+                message += `   🔗 [Click to Listen](${video.url})\n\n`;
             });
             
-            // Delete the loading message
-            await bot.deleteMessage(chatId, loadingMsg.message_id);
+            message += `📌 *How to download:*\n`;
+            message += `1. Click any link above to open YouTube\n`;
+            message += `2. Use a YouTube to MP3 converter (search Google)\n`;
+            message += `3. Or search: "${songName} download mp3"`;
             
-            // Delete the audio file after sending
-            fs.unlinkSync(audioFile.path);
-            
-            // Send follow-up buttons
             const options = {
                 reply_markup: {
                     inline_keyboard: [
@@ -422,30 +426,37 @@ bot.onText(/\/song (.+)/, async (msg, match) => {
                             { text: "🏠 HOME", callback_data: "start" }
                         ],
                         [
-                            { text: "🎵 DOWNLOAD ANOTHER SONG", callback_data: "song_prompt" }
+                            { text: "🎵 SEARCH ANOTHER SONG", callback_data: "song_prompt" }
                         ]
                     ]
                 }
             };
             
-            await bot.sendMessage(chatId, "✅ *Song downloaded successfully!*", { parseMode: 'Markdown', ...options });
-        } else {
-            await bot.editMessageText(`❌ Could not find "*${songName}*". Try a different song name.`, {
+            await bot.editMessageText(message, {
                 chat_id: chatId,
                 message_id: loadingMsg.message_id,
-                parseMode: 'Markdown'
+                parseMode: 'Markdown',
+                disable_web_page_preview: false,
+                ...options
+            });
+        } else {
+            await bot.editMessageText(`❌ No results found for "*${songName}*".\n\nTry:\n🔗 [Search on YouTube](https://www.youtube.com/results?search_query=${encodeURIComponent(songName)})\n🔗 [Search on Spotify](https://open.spotify.com/search/${encodeURIComponent(songName)})`, {
+                chat_id: chatId,
+                message_id: loadingMsg.message_id,
+                parseMode: 'Markdown',
+                disable_web_page_preview: true
             });
         }
     } catch (error) {
-        console.error('Song download error:', error);
-        await bot.editMessageText(`❌ Error downloading "*${songName}*". Please try again later.`, {
+        console.error('Song search error:', error);
+        await bot.editMessageText(`❌ Error searching for "*${songName}*".\n\n🔗 [Search directly on YouTube](https://www.youtube.com/results?search_query=${encodeURIComponent(songName)})`, {
             chat_id: chatId,
             message_id: loadingMsg.message_id,
-            parseMode: 'Markdown'
+            parseMode: 'Markdown',
+            disable_web_page_preview: true
         });
     }
 });
-
 // ============================================
 // PING COMMAND
 // ============================================
