@@ -207,7 +207,7 @@ bot.onText(/\/about/, (msg) => {
 ╠══════════════════════════════╣
 ║  📌 NAME: SHADOW MD          ║
 ║  📦 VERSION: 2.0 ★           ║
-║  👨‍💻 DEVELOPER: @shadowtechmax ║
+║  👨‍💻 DEVELOPER: @shadowcodemax ║
 ║  🌐 STATUS: 🟢 ONLINE         ║
 ║  🎯 PURPOSE: MULTI-UTILITY    ║
 ║      TELEGRAM BOT            ║
@@ -243,7 +243,7 @@ bot.onText(/\/report/, (msg) => {
 ║  TO REPORT AN ISSUE:        ║
 ║  ━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
 ║  CONTACT DEVELOPER:         ║
-║  @shadowtechmax              ║
+║  @shadowcodemax              ║
 ║                             ║
 ║  OR SEND MESSAGE TO:        ║
 ║  📧 shadowtech@gmail.com    ║
@@ -778,7 +778,7 @@ bot.on('callback_query', async (callbackQuery) => {
 ╠══════════════════════════════╣
 ║  📌 NAME: SHADOW MD          ║
 ║  📦 VERSION: 2.0 ★           ║
-║  👨‍💻 DEVELOPER: @shadowcodehmax ║
+║  👨‍💻 DEVELOPER: @shadowcodemax ║
 ║  🌐 STATUS: 🟢 ONLINE         ║
 ║  🎯 PURPOSE: MULTI-UTILITY    ║
 ║      TELEGRAM BOT            ║
@@ -926,7 +926,7 @@ bot.on('callback_query', async (callbackQuery) => {
 ║  @shadowcodemax              ║
 ║                             ║
 ║  OR EMAIL:                  ║
-║  📧 shadowtech@gmail.com    ║
+║  📧 muhammedadedokun090@gmail.com    ║
 ╚══════════════════════════════╝`;
             
             const reportOptions = {
