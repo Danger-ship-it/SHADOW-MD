@@ -29,10 +29,91 @@ app.get('/', (req, res) => {
     res.send('SHADOW MD Bot is running!');
 });
 
+// ============================================
+// FORCE SUBSCRIBE CONFIGURATION
+// ============================================
+
+// Store user verification status (cached)
+const verifiedUsers = new Map(); // userId -> boolean
+
+// Required channels/groups (update with your actual links)
+const REQUIRED_CHANNELS = [
+    {
+        id: '@shadowvoetex',  // Your Telegram group username
+        name: 'SHADOW VOETEX',
+        link: 'https://t.me/shadowvoetex',
+        type: 'group'
+    }
+];
+
+// Check if user is subscribed to all required channels
+async function isUserSubscribed(userId) {
+    try {
+        for (const channel of REQUIRED_CHANNELS) {
+            const chatMember = await bot.getChatMember(channel.id, userId);
+            const status = chatMember.status;
+            
+            // Valid statuses: 'member', 'administrator', 'creator'
+            if (!['member', 'administrator', 'creator'].includes(status)) {
+                console.log(`User ${userId} not subscribed to ${channel.name}`);
+                return false;
+            }
+        }
+        return true;
+    } catch (error) {
+        console.error('Error checking subscription:', error.message);
+        return false;
+    }
+}
+
+// Generate force subscribe message
+function getForceSubscribeMessage() {
+    let message = `╔════════════════════════════════════════╗
+║     🔒 ACCESS RESTRICTED 🔒              ║
+╠════════════════════════════════════════╣
+║  To use SHADOW MD Bot, you MUST join:  ║
+║                                        ║
+`;
+    
+    REQUIRED_CHANNELS.forEach((channel, index) => {
+        message += `║  ${index + 1}. ${channel.name}\n`;
+    });
+    
+    message += `║                                        ║
+║  👇 Click the button below to join     ║
+║                                        ║
+║  After joining, click:                 ║
+║  ✅ "I HAVE JOINED" to verify           ║
+╠════════════════════════════════════════╣
+║  ⚠️ This bot only works for            ║
+║     subscribers of our group!          ║
+╚════════════════════════════════════════╝`;
+
+    return message;
+}
+
+// Create inline keyboard for force subscribe
+function getForceSubscribeKeyboard() {
+    const keyboard = [];
+    
+    REQUIRED_CHANNELS.forEach((channel) => {
+        keyboard.push([{ text: `📢 JOIN ${channel.name}`, url: channel.link }]);
+    });
+    
+    keyboard.push([{ text: "✅ I HAVE JOINED", callback_data: "verify_subscription" }]);
+    
+    return {
+        reply_markup: {
+            inline_keyboard: keyboard
+        }
+    };
+}
+
 // Helper function for random number
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
 // Format uptime
 function getUptime() {
     const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
@@ -46,6 +127,7 @@ function getUptime() {
     if (minutes > 0) return `${minutes}m ${seconds}s`;
     return `${seconds}s`;
 }
+
 // Download music function
 async function downloadMusic(songName, chatId) {
     try {
@@ -90,59 +172,111 @@ async function downloadMusic(songName, chatId) {
 }
 
 // ============================================
-// START COMMAND WITH BUTTONS
+// MIDDLEWARE: Check subscription before commands
 // ============================================
-bot.onText(/\/start/, (msg) => {
+async function checkSubscription(msg, next) {
+    const userId = msg.from.id;
     const chatId = msg.chat.id;
+    
+    // Check if user is verified
+    if (verifiedUsers.get(userId)) {
+        const isStillSubscribed = await isUserSubscribed(userId);
+        if (isStillSubscribed) {
+            return true;
+        } else {
+            verifiedUsers.delete(userId);
+        }
+    }
+    
+    const isSubscribed = await isUserSubscribed(userId);
+    
+    if (isSubscribed) {
+        verifiedUsers.set(userId, true);
+        return true;
+    } else {
+        const forceMessage = getForceSubscribeMessage();
+        const keyboard = getForceSubscribeKeyboard();
+        await bot.sendMessage(chatId, forceMessage, { parseMode: 'Markdown', ...keyboard });
+        return false;
+    }
+}
+
+// ============================================
+// START COMMAND WITH FORCE SUBSCRIBE
+// ============================================
+bot.onText(/\/start/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
     const name = msg.from.first_name;
     
-    const welcomeMessage = `╔══════════════════════════════╗
+    // Check subscription
+    const isSubscribed = await isUserSubscribed(userId);
+    
+    if (isSubscribed) {
+        verifiedUsers.set(userId, true);
+        
+        const welcomeMessage = `╔══════════════════════════════╗
 ║        🤖 SHADOW MD          ║
 ║    YOUR ULTIMATE TELEGRAM BOT
 ╠══════════════════════════════╣
 ║  👋 WELCOME ${name.toUpperCase()}!
+║  ✅ SUBSCRIPTION VERIFIED
 ║  TYPE /help TO GET STARTED
 ╚══════════════════════════════╝`;
 
-    const options = {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    { text: "📚 HELP", callback_data: "help" },
-                    { text: "ℹ️ ABOUT", callback_data: "about" }
-                ],
-                [
-                    { text: "🎬 MOVIE", callback_data: "movie" },
-                    { text: "🎵 SONG", callback_data: "song" }
-                ],
-                [
-                    { text: "⏱️ UPTIME", callback_data: "uptime" },
-                    { text: "👤 WHOAMI", callback_data: "whoami" }
-                ],
-                [
-                    { text: "🎲 ROLL", callback_data: "roll" },
-                    { text: "🪙 FLIP", callback_data: "flip" }
-                ],
-                [
-                    { text: "📅 TIME", callback_data: "time" },
-                    { text: "💭 QUOTE", callback_data: "quote" }
-                ],
-                [
-                    { text: "📝 REPORT", callback_data: "report" },
-                    { text: "🏓 PING", callback_data: "ping" }
+        const options = {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "📚 HELP", callback_data: "help" },
+                        { text: "ℹ️ ABOUT", callback_data: "about" }
+                    ],
+                    [
+                        { text: "🎬 MOVIE", callback_data: "movie" },
+                        { text: "🎵 SONG", callback_data: "song" }
+                    ],
+                    [
+                        { text: "⏱️ UPTIME", callback_data: "uptime" },
+                        { text: "👤 WHOAMI", callback_data: "whoami" }
+                    ],
+                    [
+                        { text: "🎲 ROLL", callback_data: "roll" },
+                        { text: "🪙 FLIP", callback_data: "flip" }
+                    ],
+                    [
+                        { text: "📅 TIME", callback_data: "time" },
+                        { text: "💭 QUOTE", callback_data: "quote" }
+                    ],
+                    [
+                        { text: "🎮 GAMES", callback_data: "games" },
+                        { text: "📝 REPORT", callback_data: "report" }
+                    ],
+                    [
+                        { text: "🏓 PING", callback_data: "ping" }
+                    ]
                 ]
-            ]
-        }
-    };
-    
-    bot.sendMessage(chatId, welcomeMessage, { parseMode: 'Markdown', ...options });
+            }
+        };
+        
+        await bot.sendMessage(chatId, welcomeMessage, { parseMode: 'Markdown', ...options });
+    } else {
+        verifiedUsers.delete(userId);
+        const forceMessage = getForceSubscribeMessage();
+        const keyboard = getForceSubscribeKeyboard();
+        await bot.sendMessage(chatId, forceMessage, { parseMode: 'Markdown', ...keyboard });
+    }
 });
 
 // ============================================
 // HELP COMMAND WITH BUTTONS
 // ============================================
-bot.onText(/\/help/, (msg) => {
+bot.onText(/\/help/, async (msg) => {
     const chatId = msg.chat.id;
+    
+    // Check subscription
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const helpMessage = `╔════════════════════════════════════════╗
 ║         🤖 SHADOW MD COMMANDS          ║
 ╠════════════════════════════════════════╣
@@ -158,6 +292,13 @@ bot.onText(/\/help/, (msg) => {
 ║  /random <min> <max> - RANDOM NUMBER   ║
 ║  /quote - RANDOM QUOTE                 ║
 ║  /hello - GET A GREETING               ║
+║  /rps - ROCK PAPER SCISSORS            ║
+║  /trivia - TRIVIA QUESTION             ║
+║  /number - GUESS THE NUMBER            ║
+║  /joke - RANDOM JOKE                   ║
+║  /fact - RANDOM FACT                   ║
+║  /advice - RANDOM ADVICE               ║
+║  /8ball - MAGIC 8-BALL                 ║
 ║                                        ║
 ║  🔧 *UTILITY COMMANDS:*                ║
 ║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
@@ -187,6 +328,10 @@ bot.onText(/\/help/, (msg) => {
                     { text: "🎵 SONG", callback_data: "song" }
                 ],
                 [
+                    { text: "🎮 GAMES", callback_data: "games" },
+                    { text: "📝 REPORT", callback_data: "report" }
+                ],
+                [
                     { text: "⏱️ UPTIME", callback_data: "uptime" },
                     { text: "👤 WHOAMI", callback_data: "whoami" }
                 ]
@@ -194,14 +339,18 @@ bot.onText(/\/help/, (msg) => {
         }
     };
     
-    bot.sendMessage(chatId, helpMessage, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, helpMessage, { parseMode: 'Markdown', ...options });
 });
 
 // ============================================
 // ABOUT COMMAND
 // ============================================
-bot.onText(/\/about/, (msg) => {
+bot.onText(/\/about/, async (msg) => {
     const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const aboutMessage = `╔══════════════════════════════╗
 ║     🤖 ABOUT SHADOW MD       ║
 ╠══════════════════════════════╣
@@ -229,14 +378,18 @@ bot.onText(/\/about/, (msg) => {
         }
     };
     
-    bot.sendMessage(chatId, aboutMessage, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, aboutMessage, { parseMode: 'Markdown', ...options });
 });
 
 // ============================================
 // REPORT COMMAND
 // ============================================
-bot.onText(/\/report/, (msg) => {
+bot.onText(/\/report/, async (msg) => {
     const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const message = `╔══════════════════════════════╗
 ║       📝 REPORT ISSUE        ║
 ╠══════════════════════════════╣
@@ -262,14 +415,18 @@ bot.onText(/\/report/, (msg) => {
         }
     };
     
-    bot.sendMessage(chatId, message, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, message, { parseMode: 'Markdown', ...options });
 });
 
 // ============================================
 // UPTIME COMMAND
 // ============================================
-bot.onText(/\/uptime/, (msg) => {
+bot.onText(/\/uptime/, async (msg) => {
     const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const uptime = getUptime();
     
     const options = {
@@ -283,14 +440,18 @@ bot.onText(/\/uptime/, (msg) => {
         }
     };
     
-    bot.sendMessage(chatId, `⏱️ *SHADOW MD Uptime:* \`${uptime}\``, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, `⏱️ *SHADOW MD Uptime:* \`${uptime}\``, { parseMode: 'Markdown', ...options });
 });
 
 // ============================================
 // WHOAMI COMMAND
 // ============================================
-bot.onText(/\/whoami/, (msg) => {
+bot.onText(/\/whoami/, async (msg) => {
     const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const user = msg.from;
     const info = `╔══════════════════════════════╗
 ║       👤 USER INFORMATION     ║
@@ -313,7 +474,7 @@ bot.onText(/\/whoami/, (msg) => {
         }
     };
     
-    bot.sendMessage(chatId, info, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, info, { parseMode: 'Markdown', ...options });
 });
 
 // ============================================
@@ -321,6 +482,10 @@ bot.onText(/\/whoami/, (msg) => {
 // ============================================
 bot.onText(/\/movie (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const movieName = match[1];
     
     const loadingMsg = await bot.sendMessage(chatId, `🎬 Searching for "*${movieName}*"... Please wait.`, { parseMode: 'Markdown' });
@@ -385,11 +550,16 @@ bot.onText(/\/movie (.+)/, async (msg, match) => {
         });
     }
 });
+
 // ============================================
 // SONG COMMAND - Provides YouTube links (RELIABLE)
 // ============================================
 bot.onText(/\/song (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const songName = match[1];
     
     const loadingMsg = await bot.sendMessage(chatId, `🎵 Searching for "*${songName}*"... Please wait.`, { parseMode: 'Markdown' });
@@ -455,42 +625,263 @@ bot.onText(/\/song (.+)/, async (msg, match) => {
         });
     }
 });
+
 // ============================================
-// PING COMMAND
+// NEW INTERESTING GAME COMMANDS
 // ============================================
-bot.onText(/\/ping/, (msg) => {
+
+// Rock Paper Scissors Game
+bot.onText(/\/rps/, async (msg) => {
     const chatId = msg.chat.id;
-    const start = Date.now();
     
-    bot.sendMessage(chatId, 'Pong! 🏓').then((sentMsg) => {
-        const responseTime = Date.now() - start;
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    const options = {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: "🪨 ROCK", callback_data: "rps_rock" },
+                    { text: "📄 PAPER", callback_data: "rps_paper" },
+                    { text: "✂️ SCISSORS", callback_data: "rps_scissors" }
+                ],
+                [
+                    { text: "🏠 HOME", callback_data: "start" }
+                ]
+            ]
+        }
+    };
+    
+    await bot.sendMessage(chatId, "🎮 *Choose your move!*", { parseMode: 'Markdown', ...options });
+});
+
+// Trivia Game
+bot.onText(/\/trivia/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    try {
+        const response = await axios.get('https://opentdb.com/api.php?amount=1&type=multiple');
+        const question = response.data.results[0];
+        
+        const answers = [...question.incorrect_answers, question.correct_answer];
+        for (let i = answers.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [answers[i], answers[j]] = [answers[j], answers[i]];
+        }
+        
+        const buttons = answers.map(answer => ([{ text: answer, callback_data: `trivia_${answer === question.correct_answer ? 'correct' : 'wrong'}` }]));
+        buttons.push([{ text: "🏠 HOME", callback_data: "start" }]);
+        
+        const options = {
+            reply_markup: {
+                inline_keyboard: buttons
+            }
+        };
+        
+        await bot.sendMessage(chatId, `📚 *TRIVIA QUESTION*\n\n${question.question}\n\nCategory: ${question.category}\nDifficulty: ${question.difficulty}`, { parseMode: 'Markdown', ...options });
+    } catch (error) {
+        await bot.sendMessage(chatId, "❌ Could not fetch trivia. Try again later!");
+    }
+});
+
+// Guess the Number Game
+let numberGame = new Map(); // Store active games
+
+bot.onText(/\/number/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    const secretNumber = getRandomInt(1, 100);
+    numberGame.set(userId, { secret: secretNumber, attempts: 0 });
+    
+    const options = {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: "🏠 HOME", callback_data: "start" }
+                ]
+            ]
+        }
+    };
+    
+    await bot.sendMessage(chatId, "🔢 *GUESS THE NUMBER!*\n\nI'm thinking of a number between 1 and 100.\nType your guess as a number!\nExample: `50`", { parseMode: 'Markdown', ...options });
+});
+
+// Handle number guesses
+bot.onText(/^(\d+)$/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const guess = parseInt(match[1]);
+    
+    if (!numberGame.has(userId)) return;
+    
+    const game = numberGame.get(userId);
+    game.attempts++;
+    
+    if (guess === game.secret) {
+        numberGame.delete(userId);
+        const options = {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "🎮 PLAY AGAIN", callback_data: "number" },
+                        { text: "🏠 HOME", callback_data: "start" }
+                    ]
+                ]
+            }
+        };
+        await bot.sendMessage(chatId, `🎉 *CORRECT!* 🎉\n\nThe number was ${game.secret}!\nYou guessed it in ${game.attempts} attempts!`, { parseMode: 'Markdown', ...options });
+    } else if (guess < game.secret) {
+        await bot.sendMessage(chatId, `📈 Too low! Try again. (Attempts: ${game.attempts})`);
+    } else {
+        await bot.sendMessage(chatId, `📉 Too high! Try again. (Attempts: ${game.attempts})`);
+    }
+});
+
+// Random Joke
+bot.onText(/\/joke/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    try {
+        const response = await axios.get('https://official-joke-api.appspot.com/random_joke');
+        const joke = response.data;
         
         const options = {
             reply_markup: {
                 inline_keyboard: [
                     [
-                        { text: "🏠 HOME", callback_data: "start" },
-                        { text: "📚 HELP", callback_data: "help" }
+                        { text: "😂 ANOTHER JOKE", callback_data: "joke" },
+                        { text: "🏠 HOME", callback_data: "start" }
                     ]
                 ]
             }
         };
         
-        bot.editMessageText(`🏓 Pong!\n⏱️ Response time: ${responseTime}ms`, {
-            chat_id: chatId,
-            message_id: sentMsg.message_id,
-            parseMode: 'Markdown',
-            ...options
-        });
-    });
+        await bot.sendMessage(chatId, `🎭 *JOKE TIME!*\n\n${joke.setup}\n\n*${joke.punchline}*`, { parseMode: 'Markdown', ...options });
+    } catch (error) {
+        await bot.sendMessage(chatId, "❌ Could not fetch joke. Try again!");
+    }
+});
+
+// Random Fact
+bot.onText(/\/fact/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    try {
+        const response = await axios.get('https://uselessfacts.jsph.pl/random.json?language=en');
+        const fact = response.data.text;
+        
+        const options = {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "📖 ANOTHER FACT", callback_data: "fact" },
+                        { text: "🏠 HOME", callback_data: "start" }
+                    ]
+                ]
+            }
+        };
+        
+        await bot.sendMessage(chatId, `📖 *RANDOM FACT*\n\n${fact}`, { parseMode: 'Markdown', ...options });
+    } catch (error) {
+        await bot.sendMessage(chatId, "❌ Could not fetch fact. Try again!");
+    }
+});
+
+// Random Advice
+bot.onText(/\/advice/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    try {
+        const response = await axios.get('https://api.adviceslip.com/advice');
+        const advice = response.data.slip.advice;
+        
+        const options = {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "💡 MORE ADVICE", callback_data: "advice" },
+                        { text: "🏠 HOME", callback_data: "start" }
+                    ]
+                ]
+            }
+        };
+        
+        await bot.sendMessage(chatId, `💡 *ADVICE*\n\n"${advice}"`, { parseMode: 'Markdown', ...options });
+    } catch (error) {
+        await bot.sendMessage(chatId, "❌ Could not fetch advice. Try again!");
+    }
+});
+
+// Magic 8-Ball
+const eightBallResponses = [
+    "Yes, definitely!", "It is certain.", "Without a doubt.", "Most likely.",
+    "Signs point to yes.", "Reply hazy, try again.", "Ask again later.",
+    "Better not tell you now.", "Cannot predict now.", "Don't count on it.",
+    "My reply is no.", "My sources say no.", "Outlook not so good.", "Very doubtful."
+];
+
+bot.onText(/\/8ball (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const question = match[1];
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    const answer = eightBallResponses[Math.floor(Math.random() * eightBallResponses.length)];
+    
+    const options = {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: "🔮 ASK ANOTHER", callback_data: "eightball_prompt" },
+                    { text: "🏠 HOME", callback_data: "start" }
+                ]
+            ]
+        }
+    };
+    
+    await bot.sendMessage(chatId, `🔮 *MAGIC 8-BALL*\n\nQuestion: ${question}\n\nAnswer: ${answer}`, { parseMode: 'Markdown', ...options });
+});
+
+bot.onText(/\/8ball/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    await bot.sendMessage(chatId, "🔮 *Ask the Magic 8-Ball a question!*\nExample: `/8ball Will I win today?`", { parseMode: 'Markdown' });
 });
 
 // ============================================
-// OTHER UTILITY COMMANDS
+// PING COMMAND
 // ============================================
-
-// Chat ID command
-bot.onText(/\/chatid/, (msg) => {
+bot.onText(/\/ping/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    const start = Date.now();
+    
+    const sentMsg = await bot.sendMessage(chatId, 'Pong! 🏓');
+    const responseTime = Date.now() - start;
+    
     const options = {
         reply_markup: {
             inline_keyboard: [
@@ -501,11 +892,46 @@ bot.onText(/\/chatid/, (msg) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `🆔 Chat ID: \`${msg.chat.id}\``, { parseMode: 'Markdown', ...options });
+    
+    await bot.editMessageText(`🏓 Pong!\n⏱️ Response time: ${responseTime}ms`, {
+        chat_id: chatId,
+        message_id: sentMsg.message_id,
+        parseMode: 'Markdown',
+        ...options
+    });
+});
+
+// ============================================
+// OTHER UTILITY COMMANDS
+// ============================================
+
+// Chat ID command
+bot.onText(/\/chatid/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
+    const options = {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: "🏠 HOME", callback_data: "start" },
+                    { text: "📚 HELP", callback_data: "help" }
+                ]
+            ]
+        }
+    };
+    await bot.sendMessage(chatId, `🆔 Chat ID: \`${msg.chat.id}\``, { parseMode: 'Markdown', ...options });
 });
 
 // Hello command
-bot.onText(/\/hello/, (msg) => {
+bot.onText(/\/hello/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const greetings = ['Hello', 'Hi', 'Hey', "What's up", 'Greetings'];
     const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
     const options = {
@@ -518,11 +944,16 @@ bot.onText(/\/hello/, (msg) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `${randomGreeting} ${msg.from.first_name}! 👋`, { ...options });
+    await bot.sendMessage(chatId, `${randomGreeting} ${msg.from.first_name}! 👋`, { ...options });
 });
 
 // Time command
-bot.onText(/\/time/, (msg) => {
+bot.onText(/\/time/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const now = new Date();
     const options = {
         reply_markup: {
@@ -534,11 +965,16 @@ bot.onText(/\/time/, (msg) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `📅 ${now.toLocaleDateString()}\n🕐 ${now.toLocaleTimeString()}`, { ...options });
+    await bot.sendMessage(chatId, `📅 ${now.toLocaleDateString()}\n🕐 ${now.toLocaleTimeString()}`, { ...options });
 });
 
 // Echo command
-bot.onText(/\/echo (.+)/, (msg, match) => {
+bot.onText(/\/echo (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const options = {
         reply_markup: {
             inline_keyboard: [
@@ -549,11 +985,16 @@ bot.onText(/\/echo (.+)/, (msg, match) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `🔊 ${match[1]}`, { ...options });
+    await bot.sendMessage(chatId, `🔊 ${match[1]}`, { ...options });
 });
 
 // Calculator
-bot.onText(/\/calc (.+)/, (msg, match) => {
+bot.onText(/\/calc (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     try {
         const result = Function(`'use strict'; return (${match[1]})`)();
         const options = {
@@ -566,14 +1007,19 @@ bot.onText(/\/calc (.+)/, (msg, match) => {
                 ]
             }
         };
-        bot.sendMessage(msg.chat.id, `🧮 \`${match[1]} = ${result}\``, { parseMode: 'Markdown', ...options });
+        await bot.sendMessage(chatId, `🧮 \`${match[1]} = ${result}\``, { parseMode: 'Markdown', ...options });
     } catch {
-        bot.sendMessage(msg.chat.id, '❌ Invalid calculation');
+        await bot.sendMessage(chatId, '❌ Invalid calculation');
     }
 });
 
 // Roll dice
-bot.onText(/\/roll/, (msg) => {
+bot.onText(/\/roll/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const dice = getRandomInt(1, 6);
     const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     const options = {
@@ -586,11 +1032,16 @@ bot.onText(/\/roll/, (msg) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `🎲 You rolled a ${dice} ${diceEmojis[dice-1]}`, { ...options });
+    await bot.sendMessage(chatId, `🎲 You rolled a ${dice} ${diceEmojis[dice-1]}`, { ...options });
 });
 
 // Flip coin
-bot.onText(/\/flip/, (msg) => {
+bot.onText(/\/flip/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
     const emoji = result === 'Heads' ? '👑' : '🪙';
     const options = {
@@ -603,11 +1054,16 @@ bot.onText(/\/flip/, (msg) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `${emoji} Coin flip: *${result}!*`, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, `${emoji} Coin flip: *${result}!*`, { parseMode: 'Markdown', ...options });
 });
 
 // Random number
-bot.onText(/\/random (\d+) (\d+)/, (msg, match) => {
+bot.onText(/\/random (\d+) (\d+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     let min = parseInt(match[1]);
     let max = parseInt(match[2]);
     if (min > max) [min, max] = [max, min];
@@ -621,11 +1077,16 @@ bot.onText(/\/random (\d+) (\d+)/, (msg, match) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `🎲 Random: *${getRandomInt(min, max)}*`, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, `🎲 Random: *${getRandomInt(min, max)}*`, { parseMode: 'Markdown', ...options });
 });
 
 // Quote command
-bot.onText(/\/quote/, (msg) => {
+bot.onText(/\/quote/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const quotes = [
         { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
         { text: "Stay hungry, stay foolish.", author: "Steve Jobs" },
@@ -644,19 +1105,24 @@ bot.onText(/\/quote/, (msg) => {
             ]
         }
     };
-    bot.sendMessage(msg.chat.id, `💭 *"${quote.text}"*\n\n— ${quote.author}`, { parseMode: 'Markdown', ...options });
+    await bot.sendMessage(chatId, `💭 *"${quote.text}"*\n\n— ${quote.author}`, { parseMode: 'Markdown', ...options });
 });
 
 // Reminder command
-bot.onText(/\/remind (\d+) (.+)/, (msg, match) => {
+bot.onText(/\/remind (\d+) (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    
+    const canProceed = await checkSubscription(msg);
+    if (!canProceed) return;
+    
     const seconds = parseInt(match[1]);
     const reminderText = match[2];
     if (seconds <= 0 || seconds > 3600) {
-        bot.sendMessage(msg.chat.id, '❌ Set reminder between 1-3600 seconds');
+        await bot.sendMessage(chatId, '❌ Set reminder between 1-3600 seconds');
         return;
     }
-    bot.sendMessage(msg.chat.id, `⏰ Reminder in ${seconds} seconds: "${reminderText}"`);
-    setTimeout(() => {
+    await bot.sendMessage(chatId, `⏰ Reminder in ${seconds} seconds: "${reminderText}"`);
+    setTimeout(async () => {
         const options = {
             reply_markup: {
                 inline_keyboard: [
@@ -667,16 +1133,16 @@ bot.onText(/\/remind (\d+) (.+)/, (msg, match) => {
                 ]
             }
         };
-        bot.sendMessage(msg.chat.id, `🔔 *REMINDER*: ${reminderText}`, { parseMode: 'Markdown', ...options });
+        await bot.sendMessage(chatId, `🔔 *REMINDER*: ${reminderText}`, { parseMode: 'Markdown', ...options });
     }, seconds * 1000);
 });
+
 // ============================================
 // CALLBACK QUERY HANDLER (For button presses)
 // ============================================
 bot.on('callback_query', async (callbackQuery) => {
     const message = callbackQuery.message;
     const chatId = message.chat.id;
-    const messageId = message.message_id;
     const data = callbackQuery.data;
     
     // Answer the callback to remove loading state
@@ -684,162 +1150,83 @@ bot.on('callback_query', async (callbackQuery) => {
     
     // Handle different button presses
     switch(data) {
-        case 'start':
-            // Send new welcome message instead of editing
-            const name = callbackQuery.from.first_name;
-            const welcomeMessage = `╔══════════════════════════════╗
+        case 'verify_subscription':
+            const userId = callbackQuery.from.id;
+            const isSubscribed = await isUserSubscribed(userId);
+            
+            if (isSubscribed) {
+                verifiedUsers.set(userId, true);
+                await bot.editMessageText(
+                    `✅ *SUBSCRIPTION VERIFIED!*\n\nWelcome to SHADOW MD Bot! Type /help to get started.`,
+                    {
+                        chat_id: chatId,
+                        message_id: message.message_id,
+                        parseMode: 'Markdown'
+                    }
+                );
+                
+                // Send the actual welcome message
+                const name = callbackQuery.from.first_name;
+                const welcomeMessage = `╔══════════════════════════════╗
 ║        🤖 SHADOW MD          ║
 ║    YOUR ULTIMATE TELEGRAM BOT
 ╠══════════════════════════════╣
 ║  👋 WELCOME ${name.toUpperCase()}!
 ║  TYPE /help TO GET STARTED
 ╚══════════════════════════════╝`;
-
-            const options = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "📚 HELP", callback_data: "help" },
-                            { text: "ℹ️ ABOUT", callback_data: "about" }
-                        ],
-                        [
-                            { text: "🎬 MOVIE", callback_data: "movie" },
-                            { text: "🎵 SONG", callback_data: "song" }
-                        ],
-                        [
-                            { text: "⏱️ UPTIME", callback_data: "uptime" },
-                            { text: "👤 WHOAMI", callback_data: "whoami" }
-                        ],
-                        [
-                            { text: "🎲 ROLL", callback_data: "roll" },
-                            { text: "🪙 FLIP", callback_data: "flip" }
-                        ],
-                        [
-                            { text: "📅 TIME", callback_data: "time" },
-                            { text: "💭 QUOTE", callback_data: "quote" }
-                        ],
-                        [
-                            { text: "📝 REPORT", callback_data: "report" },
-                            { text: "🏓 PING", callback_data: "ping" }
+                
+                const options = {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: "📚 HELP", callback_data: "help" },
+                                { text: "ℹ️ ABOUT", callback_data: "about" }
+                            ],
+                            [
+                                { text: "🎬 MOVIE", callback_data: "movie" },
+                                { text: "🎵 SONG", callback_data: "song" }
+                            ],
+                            [
+                                { text: "🎮 GAMES", callback_data: "games" },
+                                { text: "📝 REPORT", callback_data: "report" }
+                            ]
                         ]
-                    ]
-                }
-            };
-            
-            await bot.sendMessage(chatId, welcomeMessage, { parseMode: 'Markdown', ...options });
+                    }
+                };
+                
+                await bot.sendMessage(chatId, welcomeMessage, { parseMode: 'Markdown', ...options });
+            } else {
+                await bot.answerCallbackQuery(callbackQuery.id, {
+                    text: "❌ You haven't joined the required group yet! Please join @shadowvoetex first.",
+                    show_alert: true
+                });
+            }
             break;
             
-        case 'help':
-            const helpMessage = `╔════════════════════════════════════════╗
-║         🤖 SHADOW MD COMMANDS          ║
-╠════════════════════════════════════════╣
-║  🎬 *MOVIE & MUSIC COMMANDS:*          ║
-║  /movie <name> - FIND MOVIE            ║
-║  /song <name> - DOWNLOAD SONG          ║
-║                                        ║
-║  🎮 *FUN & GAMES:*                     ║
-║  /roll - ROLL A DICE                   ║
-║  /flip - FLIP A COIN                   ║
-║  /random <min> <max> - RANDOM NUMBER   ║
-║  /quote - RANDOM QUOTE                 ║
-║  /hello - GET A GREETING               ║
-║                                        ║
-║  🔧 *UTILITY COMMANDS:*                ║
-║  /time - CURRENT DATE & TIME           ║
-║  /uptime - BOT UPTIME                  ║
-║  /echo <msg> - REPEAT MESSAGE          ║
-║  /calc <exp> - CALCULATE MATH          ║
-║  /remind <sec> <msg> - SET REMINDER    ║
-║                                        ║
-║  ℹ️ *INFO COMMANDS:*                   ║
-║  /about - ABOUT SHADOW MD              ║
-║  /whoami - YOUR USER INFO              ║
-║  /chatid - GET CHAT ID                 ║
-║  /ping - CHECK RESPONSE TIME           ║
-╚════════════════════════════════════════╝`;
-
-            const helpOptions = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "🏠 HOME", callback_data: "start" },
-                            { text: "ℹ️ ABOUT", callback_data: "about" }
-                        ]
-                    ]
-                }
-            };
-            
-            await bot.sendMessage(chatId, helpMessage, { parseMode: 'Markdown', ...helpOptions });
-            break;
-            
-        case 'about':
-            const aboutMessage = `╔══════════════════════════════╗
-║     🤖 ABOUT SHADOW MD       ║
+        case 'games':
+            const gamesMessage = `╔══════════════════════════════╗
+║         🎮 GAMES MENU        ║
 ╠══════════════════════════════╣
-║  📌 NAME: SHADOW MD          ║
-║  📦 VERSION: 2.0 ★           ║
-║  👨‍💻 DEVELOPER: @shadowcodemax ║
-║  🌐 STATUS: 🟢 ONLINE         ║
-║  🎯 PURPOSE: MULTI-UTILITY    ║
-║      TELEGRAM BOT            ║
-║  🛠️ FEATURES:                ║
-║   • MUSIC SEARCH             ║
-║   • MOVIE FINDER             ║
-║   • GAMES & UTILITIES        ║
-║   • REMINDERS & MORE         ║
-╚══════════════════════════════╝`;
-
-            const aboutOptions = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "🏠 HOME", callback_data: "start" },
-                            { text: "📚 HELP", callback_data: "help" }
-                        ]
-                    ]
-                }
-            };
-            
-            await bot.sendMessage(chatId, aboutMessage, { parseMode: 'Markdown', ...aboutOptions });
-            break;
-            
-        case 'movie':
-            await bot.sendMessage(chatId, "🎬 *Send me a movie name:*\nExample: `/movie inception`", { parseMode: 'Markdown' });
-            break;
-            
-        case 'song':
-            await bot.sendMessage(chatId, "🎵 *Send me a song name:*\nExample: `/song shape of you`", { parseMode: 'Markdown' });
-            break;
-            
-        case 'uptime':
-            const uptime = getUptime();
-            const uptimeOptions = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "🏠 HOME", callback_data: "start" },
-                            { text: "📚 HELP", callback_data: "help" }
-                        ]
-                    ]
-                }
-            };
-            await bot.sendMessage(chatId, `⏱️ *SHADOW MD Uptime:* \`${uptime}\``, { parseMode: 'Markdown', ...uptimeOptions });
-            break;
-            
-        case 'whoami':
-            const user = callbackQuery.from;
-            const info = `╔══════════════════════════════╗
-║       👤 USER INFORMATION     ║
-╠══════════════════════════════╣
-║  📛 NAME: ${user.first_name} ${user.last_name || ''}
-║  🔖 USERNAME: ${user.username ? '@' + user.username : 'Not set'}
-║  🆔 USER ID: \`${user.id}\`
-║  🌐 LANGUAGE: ${user.language_code || 'Unknown'}
+║  /rps - ROCK PAPER SCISSORS  ║
+║  /trivia - TRIVIA GAME       ║
+║  /number - GUESS THE NUMBER  ║
+║  /joke - RANDOM JOKE         ║
+║  /fact - RANDOM FACT         ║
+║  /advice - RANDOM ADVICE     ║
+║  /8ball - MAGIC 8-BALL       ║
 ╚══════════════════════════════╝`;
             
-            const whoamiOptions = {
+            const gamesOptions = {
                 reply_markup: {
                     inline_keyboard: [
+                        [
+                            { text: "🎮 PLAY RPS", callback_data: "rps" },
+                            { text: "📚 TRIVIA", callback_data: "trivia" }
+                        ],
+                        [
+                            { text: "🔢 NUMBER GUESS", callback_data: "number" },
+                            { text: "😂 JOKE", callback_data: "joke" }
+                        ],
                         [
                             { text: "🏠 HOME", callback_data: "start" },
                             { text: "📚 HELP", callback_data: "help" }
@@ -848,135 +1235,241 @@ bot.on('callback_query', async (callbackQuery) => {
                 }
             };
             
-            await bot.sendMessage(chatId, info, { parseMode: 'Markdown', ...whoamiOptions });
+            await bot.sendMessage(chatId, gamesMessage, { parseMode: 'Markdown', ...gamesOptions });
             break;
             
-        case 'roll':
-            const dice = getRandomInt(1, 6);
-            const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-            const rollOptions = {
+        case 'rps':
+            const rpsOptions = {
                 reply_markup: {
                     inline_keyboard: [
                         [
-                            { text: "🎲 ROLL AGAIN", callback_data: "roll" },
+                            { text: "🪨 ROCK", callback_data: "rps_rock" },
+                            { text: "📄 PAPER", callback_data: "rps_paper" },
+                            { text: "✂️ SCISSORS", callback_data: "rps_scissors" }
+                        ],
+                        [
                             { text: "🏠 HOME", callback_data: "start" }
                         ]
                     ]
                 }
             };
-            await bot.sendMessage(chatId, `🎲 You rolled a ${dice} ${diceEmojis[dice-1]}`, { ...rollOptions });
+            await bot.sendMessage(chatId, "🎮 *Choose your move!*", { parseMode: 'Markdown', ...rpsOptions });
             break;
             
-        case 'flip':
-            const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
-            const emoji = result === 'Heads' ? '👑' : '🪙';
-            const flipOptions = {
+        case 'rps_rock':
+        case 'rps_paper':
+        case 'rps_scissors':
+            const userChoice = data.split('_')[1];
+            const choices = { rock: '🪨', paper: '📄', scissors: '✂️' };
+            const botChoices = ['rock', 'paper', 'scissors'];
+            const botChoice = botChoices[Math.floor(Math.random() * 3)];
+            
+            let result;
+            if (userChoice === botChoice) {
+                result = "It's a tie! 🤝";
+            } else if (
+                (userChoice === 'rock' && botChoice === 'scissors') ||
+                (userChoice === 'paper' && botChoice === 'rock') ||
+                (userChoice === 'scissors' && botChoice === 'paper')
+            ) {
+                result = "You win! 🎉";
+            } else {
+                result = "You lose! 😢";
+            }
+            
+            const rpsResult = `🎮 *ROCK PAPER SCISSORS*\n\nYou chose: ${choices[userChoice]} ${userChoice}\nBot chose: ${choices[botChoice]} ${botChoice}\n\n*${result}*`;
+            
+            const playAgainOptions = {
                 reply_markup: {
                     inline_keyboard: [
                         [
-                            { text: "🪙 FLIP AGAIN", callback_data: "flip" },
+                            { text: "🎮 PLAY AGAIN", callback_data: "rps" },
                             { text: "🏠 HOME", callback_data: "start" }
                         ]
                     ]
                 }
             };
-            await bot.sendMessage(chatId, `${emoji} Coin flip: *${result}!*`, { parseMode: 'Markdown', ...flipOptions });
-            break;
             
-        case 'time':
-            const now = new Date();
-            const timeOptions = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "🏠 HOME", callback_data: "start" },
-                            { text: "📚 HELP", callback_data: "help" }
-                        ]
-                    ]
-                }
-            };
-            await bot.sendMessage(chatId, `📅 ${now.toLocaleDateString()}\n🕐 ${now.toLocaleTimeString()}`, { ...timeOptions });
-            break;
-            
-        case 'quote':
-            const quotes = [
-                { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
-                { text: "Stay hungry, stay foolish.", author: "Steve Jobs" },
-                { text: "Be the change you wish to see in the world.", author: "Mahatma Gandhi" }
-            ];
-            const quote = quotes[Math.floor(Math.random() * quotes.length)];
-            const quoteOptions = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "💭 ANOTHER QUOTE", callback_data: "quote" },
-                            { text: "🏠 HOME", callback_data: "start" }
-                        ]
-                    ]
-                }
-            };
-            await bot.sendMessage(chatId, `💭 *"${quote.text}"*\n\n— ${quote.author}`, { parseMode: 'Markdown', ...quoteOptions });
-            break;
-            
-        case 'report':
-            const reportMessage = `╔══════════════════════════════╗
-║       📝 REPORT ISSUE        ║
-╠══════════════════════════════╣
-║  CONTACT DEVELOPER:         ║
-║  @shadowcodemax              ║
-║                             ║
-║  OR EMAIL:                  ║
-║  📧 muhammedadedokun090@gmail.com    ║
-╚══════════════════════════════╝`;
-            
-            const reportOptions = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "🏠 HOME", callback_data: "start" },
-                            { text: "📚 HELP", callback_data: "help" }
-                        ]
-                    ]
-                }
-            };
-            
-            await bot.sendMessage(chatId, reportMessage, { parseMode: 'Markdown', ...reportOptions });
-            break;
-            
-        case 'ping':
-            const start = Date.now();
-            const pingMsg = await bot.sendMessage(chatId, "Pong! 🏓");
-            const responseTime = Date.now() - start;
-            const pingOptions = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "🏠 HOME", callback_data: "start" },
-                            { text: "📚 HELP", callback_data: "help" }
-                        ]
-                    ]
-                }
-            };
-            await bot.editMessageText(`🏓 Pong!\n⏱️ Response time: ${responseTime}ms`, {
+            await bot.editMessageText(rpsResult, {
                 chat_id: chatId,
-                message_id: pingMsg.message_id,
+                message_id: message.message_id,
                 parseMode: 'Markdown',
-                ...pingOptions
+                ...playAgainOptions
             });
             break;
             
-        case 'movie_prompt':
-            await bot.sendMessage(chatId, "🎬 *Send me a movie name:*\nExample: `/movie inception`", { parseMode: 'Markdown' });
+        case 'trivia':
+            try {
+                const response = await axios.get('https://opentdb.com/api.php?amount=1&type=multiple');
+                const question = response.data.results[0];
+                
+                const answers = [...question.incorrect_answers, question.correct_answer];
+                for (let i = answers.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [answers[i], answers[j]] = [answers[j], answers[i]];
+                }
+                
+                const buttons = answers.map(answer => ([{ text: answer, callback_data: `trivia_${answer === question.correct_answer ? 'correct' : 'wrong'}` }]));
+                buttons.push([{ text: "🏠 HOME", callback_data: "start" }]);
+                
+                const triviaOptions = {
+                    reply_markup: {
+                        inline_keyboard: buttons
+                    }
+                };
+                
+                await bot.editMessageText(`📚 *TRIVIA QUESTION*\n\n${question.question}\n\nCategory: ${question.category}\nDifficulty: ${question.difficulty}`, {
+                    chat_id: chatId,
+                    message_id: message.message_id,
+                    parseMode: 'Markdown',
+                    ...triviaOptions
+                });
+            } catch (error) {
+                await bot.editMessageText("❌ Could not fetch trivia. Try again!", {
+                    chat_id: chatId,
+                    message_id: message.message_id
+                });
+            }
             break;
             
+        case 'trivia_correct':
+            await bot.editMessageText("✅ *CORRECT!* Well done! 🎉", {
+                chat_id: chatId,
+                message_id: message.message_id,
+                parseMode: 'Markdown'
+            });
+            break;
+            
+        case 'trivia_wrong':
+            await bot.editMessageText("❌ *WRONG!* Better luck next time! 😢", {
+                chat_id: chatId,
+                message_id: message.message_id,
+                parseMode: 'Markdown'
+            });
+            break;
+            
+        case 'number':
+            const secretNumber = getRandomInt(1, 100);
+            numberGame.set(callbackQuery.from.id, { secret: secretNumber, attempts: 0 });
+            await bot.editMessageText("🔢 *GUESS THE NUMBER!*\n\nI'm thinking of a number between 1 and 100.\nType your guess as a number!\nExample: `50`", {
+                chat_id: chatId,
+                message_id: message.message_id,
+                parseMode: 'Markdown'
+            });
+            break;
+            
+        case 'joke':
+            try {
+                const response = await axios.get('https://official-joke-api.appspot.com/random_joke');
+                const joke = response.data;
+                const jokeOptions = {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: "😂 ANOTHER JOKE", callback_data: "joke" },
+                                { text: "🏠 HOME", callback_data: "start" }
+                            ]
+                        ]
+                    }
+                };
+                await bot.editMessageText(`🎭 *JOKE TIME!*\n\n${joke.setup}\n\n*${joke.punchline}*`, {
+                    chat_id: chatId,
+                    message_id: message.message_id,
+                    parseMode: 'Markdown',
+                    ...jokeOptions
+                });
+            } catch (error) {
+                await bot.editMessageText("❌ Could not fetch joke. Try again!", {
+                    chat_id: chatId,
+                    message_id: message.message_id
+                });
+            }
+            break;
+            
+        case 'fact':
+            try {
+                const response = await axios.get('https://uselessfacts.jsph.pl/random.json?language=en');
+                const fact = response.data.text;
+                const factOptions = {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: "📖 ANOTHER FACT", callback_data: "fact" },
+                                { text: "🏠 HOME", callback_data: "start" }
+                            ]
+                        ]
+                    }
+                };
+                await bot.editMessageText(`📖 *RANDOM FACT*\n\n${fact}`, {
+                    chat_id: chatId,
+                    message_id: message.message_id,
+                    parseMode: 'Markdown',
+                    ...factOptions
+                });
+            } catch (error) {
+                await bot.editMessageText("❌ Could not fetch fact. Try again!", {
+                    chat_id: chatId,
+                    message_id: message.message_id
+                });
+            }
+            break;
+            
+        case 'advice':
+            try {
+                const response = await axios.get('https://api.adviceslip.com/advice');
+                const advice = response.data.slip.advice;
+                const adviceOptions = {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: "💡 MORE ADVICE", callback_data: "advice" },
+                                { text: "🏠 HOME", callback_data: "start" }
+                            ]
+                        ]
+                    }
+                };
+                await bot.editMessageText(`💡 *ADVICE*\n\n"${advice}"`, {
+                    chat_id: chatId,
+                    message_id: message.message_id,
+                    parseMode: 'Markdown',
+                    ...adviceOptions
+                });
+            } catch (error) {
+                await bot.editMessageText("❌ Could not fetch advice. Try again!", {
+                    chat_id: chatId,
+                    message_id: message.message_id
+                });
+            }
+            break;
+            
+        case 'eightball_prompt':
+            await bot.sendMessage(chatId, "🔮 *Ask the Magic 8-Ball a question!*\nExample: `/8ball Will I win today?`", { parseMode: 'Markdown' });
+            break;
+            
+        case 'start':
+        case 'help':
+        case 'about':
+        case 'movie':
+        case 'song':
+        case 'uptime':
+        case 'whoami':
+        case 'roll':
+        case 'flip':
+        case 'time':
+        case 'quote':
+        case 'report':
+        case 'ping':
+        case 'movie_prompt':
         case 'song_prompt':
-            await bot.sendMessage(chatId, "🎵 *Send me a song name:*\nExample: `/song shape of you`", { parseMode: 'Markdown' });
+            // Re-trigger the command
+            bot.emit('text', { chat: { id: chatId }, from: callbackQuery.from, text: `/${data}` });
             break;
             
         default:
             await bot.sendMessage(chatId, "❌ Command not recognized. Use /help for available commands.");
     }
 });
+
 // ============================================
 // START SERVER WITH WEBHOOK
 // ============================================
