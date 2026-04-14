@@ -555,15 +555,6 @@ bot.onText(/\/roll/, async (msg) => {
     const dice = getRandomInt(1, 6);
     await bot.sendMessage(chatId, `🎲 You rolled: ${dice}`);
 });
-bot.onText(/\/roll/, async (msg) => {
-    const chatId = msg.chat.id;
-    const canProceed = await checkSubscription(msg);
-    if (!canProceed) return;
-    
-    const dice = getRandomInt(1, 6);
-    await bot.sendMessage(chatId, `🎲 You rolled: ${dice}`);
-});
-
 bot.onText(/\/flip/, async (msg) => {
     const chatId = msg.chat.id;
     const canProceed = await checkSubscription(msg);
