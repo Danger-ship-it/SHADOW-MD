@@ -603,7 +603,7 @@ bot.on('callback_query', async (callbackQuery) => {
             const isSubscribed = await isUserSubscribed(userId);
             if (isSubscribed) {
                 verifiedUsers.set(userId, true);
-                await bot.editMessageText("✅ *VERIFIED!* Welcome to SHADOW MD Bot!", {
+                await bot.editMessageText("✅ *VERIFIED!* Welcome to SHADOW MD Bot!\n\nType /help to get started.", {
                     chat_id: chatId,
                     message_id: message.message_id,
                     parseMode: 'Markdown'
@@ -617,11 +617,68 @@ bot.on('callback_query', async (callbackQuery) => {
             break;
             
         case 'help':
-            bot.emit('text', { chat: { id: chatId }, from: callbackQuery.from, text: '/help' });
+            // FIXED: Directly send help message instead of emitting
+            const helpMessage = `╔════════════════════════════════════════╗
+║         🤖 SHADOW MD COMMANDS          ║
+╠════════════════════════════════════════╣
+║  ⚽ *FOOTBALL COMMANDS:*               ║
+║  /eplstandings - EPL Table            ║
+║  /eplmatches - EPL Matches            ║
+║  /eplscorers - EPL Top Scorers        ║
+║  /laligastandings - La Liga Table     ║
+║  /serieastandings - Serie A Table     ║
+║  /clstandings - UCL Table             ║
+║                                        ║
+║  🛠️ *TOOLS:*                           ║
+║  /qrcode <text> - Generate QR         ║
+║  /tinyurl <url> - Shorten URL         ║
+║  /genpass - Generate Password         ║
+║  /calculate <exp> - Calculate         ║
+║  /sticker - Sticker to Image          ║
+║                                        ║
+║  🎮 *GAMES:*                           ║
+║  /rps - Rock Paper Scissors           ║
+║  /trivia - Trivia Game                ║
+║  /number - Guess Number               ║
+║  /joke - Random Joke                  ║
+║  /8ball <q> - Magic 8-Ball            ║
+║                                        ║
+║  🎬 *MEDIA:*                           ║
+║  /movie <name> - Movie Info           ║
+║  /song <name> - Search Song           ║
+║                                        ║
+║  ℹ️ *INFO:*                            ║
+║  /about - About Bot                   ║
+║  /uptime - Bot Uptime                 ║
+║  /ping - Response Time                ║
+║  /whoami - Your Info                  ║
+╚════════════════════════════════════════╝`;
+            
+            await bot.sendMessage(chatId, helpMessage, { parseMode: 'Markdown' });
             break;
             
         case 'about':
-            bot.emit('text', { chat: { id: chatId }, from: callbackQuery.from, text: '/about' });
+            // FIXED: Directly send about message
+            const aboutMessage = `╔══════════════════════════════╗
+║     🤖 ABOUT SHADOW MD       ║
+╠══════════════════════════════╣
+║  📌 NAME: SHADOW MD          ║
+║  📦 VERSION: 3.0 ★           ║
+║  👨‍💻 DEVELOPER: @shadowcodemax ║
+║  🌐 STATUS: 🟢 ONLINE         ║
+║  🎯 FEATURES:                ║
+║   • FOOTBALL UPDATES        ║
+║   • TOOLS & UTILITIES       ║
+║   • GAMES                   ║
+║   • MOVIE & MUSIC           ║
+╚══════════════════════════════╝`;
+            
+            await bot.sendMessage(chatId, aboutMessage, { parseMode: 'Markdown' });
+            break;
+            
+        case 'report':
+            // FIXED: Directly send report message
+            await bot.sendMessage(chatId, "📝 *REPORT ISSUE*\n\nContact: @shadowcodemax", { parseMode: 'Markdown' });
             break;
             
         case 'football':
@@ -642,10 +699,6 @@ bot.on('callback_query', async (callbackQuery) => {
             
         case 'song':
             await bot.sendMessage(chatId, "🎵 Send: `/song <name>`", { parseMode: 'Markdown' });
-            break;
-            
-        case 'report':
-            bot.emit('text', { chat: { id: chatId }, from: callbackQuery.from, text: '/report' });
             break;
             
         case 'rps_rock':
@@ -681,9 +734,11 @@ bot.on('callback_query', async (callbackQuery) => {
                 parseMode: 'Markdown'
             });
             break;
+            
+        default:
+            await bot.sendMessage(chatId, "❌ Command not recognized. Use /help for available commands.");
     }
 });
-
 // ============================================
 // NUMBER GUESS HANDLER
 // ============================================
