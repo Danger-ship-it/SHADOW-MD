@@ -485,7 +485,7 @@ bot.onText(/\/airtime/, async (msg) => {
     const canProceed = await checkSubscription(msg);
     if (!canProceed) return;
     
-    await bot.sendMessage(chatId, `📱 *BUY AIRTIME NIGERIA*\n\n**USSD CODES:**\n• MTN: *555*Amount#\n• GLO: *123*Amount#\n• AIRTEL: *126*Amount#\n• 9MOBILE: *223*Amount#\n\n**APPS:**\n🔗 VTpass\n🔗 Recharge & Get Paid\n🔗 PocketMoni\n\n💡 Get discounts on bulk purchases!`, { parseMode: 'Markdown' });
+    await bot.sendMessage(chatId, `📱 *BUY AIRTIME NIGERIA*\n\n**USSD CODES:**\n• MTN: *311*Amount#\n• GLO: *311*Amount#\n• AIRTEL: *311*Amount#\n• 9MOBILE: *311*Amount#\n\n**APPS:**\n🔗 VTpass\n🔗 Recharge & Get Paid\n🔗 PocketMoni\n\n💡 Get discounts on bulk purchases!`, { parseMode: 'Markdown' });
 });
 
 bot.onText(/\/data/, async (msg) => {
